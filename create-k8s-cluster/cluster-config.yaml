@@ -1,0 +1,22 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: demo
+  region: us-east-2
+vpc:
+  nat:
+    gateway: Single  # Required for private worker nodes to access the internet
+
+managedNodeGroups:
+  - name: demo
+    instanceType: t4g.medium
+    minSize: 1
+    maxSize: 3
+    desiredCapacity: 2
+    volumeSize: 30
+    privateNetworking: true  # Ensures nodes only get private IPs
+    ssh:
+      allow: true
+      publicKeyName: test.pem  # Replace with your actual AWS EC2 key pair name
+
