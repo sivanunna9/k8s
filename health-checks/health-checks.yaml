@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        image: my-app-image:v1
+        ports:
+        - containerPort: 8080
+
+        # 🚀 Liveness Probe - Checks if the container is still running
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3  # Wait before first check
+          periodSeconds: 5        # Check every 5 seconds
+          timeoutSeconds: 2       # Mark as failure if no response in 2s
+          failureThreshold: 3     # Restart container after 3 failures
+          successThreshold: 1     # Need only 1 success to pass
+
+        # 🚀 Readiness Probe - Checks if the container is ready to accept traffic
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5  # Wait before first check
+          periodSeconds: 10       # Check every 10 seconds
+          timeoutSeconds: 3       # Fail if no response in 3s
+          failureThreshold: 3     # Mark as unready after 3 failures
+          successThreshold: 1     # Need only 1 success to pass
+
+        # 🚀 Startup Probe - Ensures the app is fully started before other probes run
+        startupProbe:
+          httpGet:
+            path: /startup
+            port: 8080
+          failureThreshold: 30    # Allow up to 30 failures before restarting
+          periodSeconds: 10       # Check every 10 seconds
+          timeoutSeconds: 5       # Fail if no response in 5s

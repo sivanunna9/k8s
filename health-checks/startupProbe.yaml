@@ -1,0 +1,8 @@
+startupProbe:
+  httpGet:
+    path: /startup
+    port: 8080
+  failureThreshold: 30
+  periodSeconds: 10
+failureThreshold: 30 → Kubernetes waits for 30 * 10s = 300s before restarting the pod.
+
