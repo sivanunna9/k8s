@@ -143,3 +143,33 @@ spec:
 ---
 
 Ensure the respective CSI drivers (EBS or EFS) are installed on your EKS cluster. These can be installed via Helm or `eksctl`.
+
+# Append EBS and EFS CSI driver installation steps to the README-service-account.md file
+
+additional_content = """
+---
+
+## ⚙️ Installing EBS and EFS CSI Drivers on EKS
+
+To use Persistent Volumes backed by AWS EBS or EFS, you must install the respective CSI drivers.
+
+---
+
+### 📦 1. Install EBS CSI Driver using `eksctl`
+
+```bash
+eksctl create iamserviceaccount \\
+  --name ebs-csi-controller-sa \\
+  --namespace kube-system \\
+  --cluster <your-cluster-name> \\
+  --role-name AmazonEKS_EBS_CSI_DriverRole \\
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \\
+  --approve \\
+  --role-only
+
+eksctl create addon \\
+  --name aws-ebs-csi-driver \\
+  --cluster <your-cluster-name> \\
+  --service-account-role-arn arn:aws:iam::<account-id>:role/AmazonEKS_EBS_CSI_DriverRole \\
+  --force
+
