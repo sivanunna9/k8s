@@ -144,9 +144,7 @@ spec:
 
 Ensure the respective CSI drivers (EBS or EFS) are installed on your EKS cluster. These can be installed via Helm or `eksctl`.
 
-# Append EBS and EFS CSI driver installation steps to the README-service-account.md file
-
-additional_content = """
+# Append EBS and EFS CSI driver installation steps 
 ---
 
 ## ⚙️ Installing EBS and EFS CSI Drivers on EKS
