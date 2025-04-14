@@ -72,6 +72,5 @@ kubectl get pods -n my-namespace
 
 ---
 
-Want a visual example or use it with Helm, RBAC, or network policies? I can guide you on that too.
 
 
