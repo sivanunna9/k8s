@@ -160,7 +160,6 @@ The IAM OIDC Provider is not enabled by default, you can use the following comma
 eksctl utils associate-iam-oidc-provider --cluster=<your-cluster-name> --region=provide region> 
 
 
-```bash
 eksctl create iamserviceaccount \
         --name ebs-csi-controller-sa \
         --namespace kube-system \
@@ -183,3 +182,206 @@ kubectl get pods -n kube-system -l "app.kubernetes.io/name=aws-ebs-csi-driver"
 
 
 
+# Setting up EFS as Persistent Volume in AWS EKS
+
+## 📋 Prerequisites
+
+Before deploying the CSI driver, create an IAM role that allows the CSI driver’s service account to make calls to AWS APIs on your behalf.
+
+---
+
+## 📄 Step-by-Step Instructions
+
+### 1. Download the IAM policy document
+
+```bash
+curl -o iam-policy-example.json https://raw.githubusercontent.com/kubernetes-sigs/aws-efs-csi-driver/v1.2.0/docs/iam-policy-example.json
+```
+
+### 2. Create an IAM policy
+
+```bash
+aws iam create-policy \
+    --policy-name AmazonEKS_EFS_CSI_Driver_Policy \
+    --policy-document file://iam-policy-example.json
+```
+
+### 3. Get OIDC provider
+
+```bash
+aws eks describe-cluster --name your_cluster_name --query "cluster.identity.oidc.issuer" --output text
+```
+
+> Replace `your_cluster_name` with your actual EKS cluster name.
+
+### 4. Create trust policy
+
+```json
+cat <<EOF > trust-policy.json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::YOUR_AWS_ACCOUNT_ID:oidc-provider/oidc.eks.YOUR_AWS_REGION.amazonaws.com/id/<XXXXXXXXXX45D83924220DC4815XXXXX>"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.YOUR_AWS_REGION.amazonaws.com/id/<XXXXXXXXXX45D83924220DC4815XXXXX>:sub": "system:serviceaccount:kube-system:efs-csi-controller-sa"
+        }
+      }
+    }
+  ]
+}
+EOF
+```
+
+### 5. Create IAM role
+
+```bash
+aws iam create-role \
+  --role-name AmazonEKS_EFS_CSI_DriverRole \
+  --assume-role-policy-document file://"trust-policy.json"
+```
+
+### 6. Attach the IAM policy to the role
+
+```bash
+aws iam attach-role-policy \
+  --policy-arn arn:aws:iam::<AWS_ACCOUNT_ID>:policy/AmazonEKS_EFS_CSI_Driver_Policy \
+  --role-name AmazonEKS_EFS_CSI_DriverRole
+```
+
+---
+
+## 🚀 Install the Amazon EFS CSI Driver
+
+### 7. Download the manifest
+
+```bash
+kubectl kustomize "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.3" > public-ecr-driver.yaml
+```
+
+### 8. Edit the `public-ecr-driver.yaml` file
+
+Add the following under `ServiceAccount`:
+
+```yaml
+annotations:
+  eks.amazonaws.com/role-arn: arn:aws:iam::<accountid>:role/AmazonEKS_EFS_CSI_DriverRole
+```
+
+### Deploy the driver
+
+```bash
+kubectl apply -f public-ecr-driver.yaml
+```
+
+> For AWS Fargate-only clusters:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-efs-csi-driver/master/deploy/kubernetes/base/csidriver.yaml
+```
+
+---
+
+## 🌐 Network Setup
+
+### 9. Get VPC ID
+
+```bash
+aws eks describe-cluster --name your_cluster_name --query "cluster.resourcesVpcConfig.vpcId" --output text
+```
+
+### 10. Get VPC CIDR
+
+```bash
+aws ec2 describe-vpcs --vpc-ids YOUR_VPC_ID --query "Vpcs[].CidrBlock" --output text
+```
+
+### 11. Create a security group
+
+```bash
+aws ec2 create-security-group --description efs-test-sg --group-name efs-sg --vpc-id YOUR_VPC_ID
+```
+
+### 12. Add NFS ingress rule
+
+```bash
+aws ec2 authorize-security-group-ingress --group-id sg-xxx --protocol tcp --port 2049 --cidr YOUR_VPC_CIDR
+```
+
+---
+
+## 📁 Create EFS File System
+
+### 13. Create EFS
+
+```bash
+aws efs create-file-system --creation-token eks-efs
+```
+
+### 14. Create mount targets
+
+```bash
+aws efs create-mount-target --file-system-id FileSystemId --subnet-id SubnetID --security-group sg-xxx
+```
+
+---
+
+## 🧪 Testing the Amazon EFS CSI Driver
+
+### 15. Clone the repo
+
+```bash
+git clone https://github.com/kubernetes-sigs/aws-efs-csi-driver.git
+cd aws-efs-csi-driver/examples/kubernetes/multiple_pods/
+```
+
+### 16. Get your FileSystemId
+
+```bash
+aws efs describe-file-systems --query "FileSystems[*].FileSystemId" --output text
+```
+
+### 17. Update `specs/pv.yaml` with FileSystemId
+
+### 18. Apply Kubernetes specs
+
+```bash
+kubectl apply -f specs/
+```
+
+### 19. Verify and Test
+
+```bash
+kubectl get pv -w
+kubectl describe pv efs-pv
+kubectl exec -it app1 -- tail /data/out1.txt 
+kubectl exec -it app2 -- tail /data/out1.txt
+```
+
+---
+
+## ✅ Result Validation
+
+Run:
+
+```bash
+kubectl exec -it app3 /bin/bash
+kubectl exec -it app4 /bin/bash
+```
+
+> Files created in one pod are visible and editable in another pod running on a different node, validating the use of EFS for ReadWriteMany mode.
+
+---
+
+## 🌟 Benefits of Using EFS in Kubernetes
+
+- **Cross-AZ Redundancy**: Scalable and HA architecture.
+- **Content Management and Web Servers**: Ideal for hosting blogs, websites, and archives.
+- **Dynamic Scaling**: Auto-scales with your application usage.
+
+> 📝 For stateful applications requiring `ReadWriteMany` mode, EFS is the recommended storage over EBS.
