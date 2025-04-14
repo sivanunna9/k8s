@@ -154,20 +154,32 @@ To use Persistent Volumes backed by AWS EBS or EFS, you must install the respect
 ---
 
 ### 📦 1. Install EBS CSI Driver using `eksctl`
+The IAM OIDC Provider is not enabled by default, you can use the following command to enable it, or use config file (see below):
 
 ```bash
-eksctl create iamserviceaccount \\
-  --name ebs-csi-controller-sa \\
-  --namespace kube-system \\
-  --cluster <your-cluster-name> \\
-  --role-name AmazonEKS_EBS_CSI_DriverRole \\
-  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \\
-  --approve \\
-  --role-only
+eksctl utils associate-iam-oidc-provider --cluster=<your-cluster-name> --region=provide region> 
+
+
+```bash
+eksctl create iamserviceaccount \
+        --name ebs-csi-controller-sa \
+        --namespace kube-system \
+        --cluster <your-cluster-name>  \
+        --role-name AmazonEKS_EBS_CSI_DriverRole \
+        --role-only \
+		    --region <provide region>  \
+        --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+        --approve
 
 eksctl create addon \\
   --name aws-ebs-csi-driver \\
   --cluster <your-cluster-name> \\
   --service-account-role-arn arn:aws:iam::<account-id>:role/AmazonEKS_EBS_CSI_DriverRole \\
   --force
+
+✅ Check driver status:
+
+kubectl get pods -n kube-system -l "app.kubernetes.io/name=aws-ebs-csi-driver"
+
+
 
