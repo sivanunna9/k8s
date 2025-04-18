@@ -97,6 +97,7 @@ kubectl apply -f https://raw.githubusercontent.com/ducks23/ingress-controller/ma
 ## 🌐 Deploy Ingress Resource
 
 ```bash
+git clone https://github.com/ducks23/ingress-controller.git
 kubectl apply -f ./deployments/ingress.yaml
 ```
 
