@@ -9,6 +9,8 @@ In Kubernetes, **Pod Presets** provide a mechanism to inject configuration data 
 - **Automatic Injection:** They inject configurations like environment variables, volume mounts, and annotations into pods without requiring changes to the pod spec.
 - **Centralized Configuration:** Pod Presets help in managing common configurations centrally and apply them consistently across multiple pods.
 - **Label Selectors:** Pod Presets apply to pods that match specific labels, providing flexibility in selecting which pods the presets should affect.
+- 
+- PodPreset was part of the Settings API group and required enabling the PodPreset admission controller, which is not available in EKS or most managed Kubernetes distributions post v1.20.
 
 ### How Pod Presets Work
 1. A `PodPreset` object is created and defines the configuration settings that need to be injected into matching pods.
