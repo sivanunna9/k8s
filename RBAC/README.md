@@ -118,6 +118,13 @@ rules:
 
 ```bash
 kubectl edit configmap aws-auth -n kube-system
+or  
+create file for mapusers
+kubectl apply -f aws-auth-configmap.yaml -n kube-system
+
+To verify that your user mappings were applied:
+kubectl get configmap aws-auth -n kube-system -o yaml
+
 ```
 
 Add this under `mapUsers`:
