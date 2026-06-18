@@ -153,6 +153,7 @@ velero install \
 --snapshot-location-config region=$REGION \
 --use-node-agent \
 --service-account-name $SERVICE_ACCOUNT \
+--no-secret \
 --namespace $NAMESPACE
 
 
