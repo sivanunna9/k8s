@@ -1,75 +1,215 @@
-Velero restore does not have an "undo" button. A restore creates Kubernetes objects (Pods, PVCs, Services, StatefulSets, etc.). To undo a restore, you delete the objects that were created by that restore.
+# Velero Restore Rollback Guide
 
-First check the restore:
+Velero restore does not have an **undo** button.
 
+A restore creates Kubernetes objects:
+
+- Pods
+- PVCs
+- Services
+- Deployments
+- StatefulSets
+- ConfigMaps
+- Secrets
+
+To undo a restore, delete the objects created by that restore.
+
+---
+
+## 1. Check Restore Status
+
+List restores:
+
+```bash
 velero restore get
+```
 
 Example:
 
-NAME       BACKUP        STATUS
-restore1   demo-backup   Completed
+```text
+NAME        BACKUP        STATUS
+restore1    demo-backup   Completed
+```
 
-Describe it:
+---
 
+## 2. Describe Restore Details
+
+Check what was restored:
+
+```bash
 velero restore describe restore1
-Option 1: Delete everything created by that restore (recommended)
+```
 
-Velero adds labels to restored resources. Delete by restore label:
+Detailed output:
 
+```bash
+velero restore describe restore1 --details
+```
+
+---
+
+# Option 1: Delete Everything Created By Restore (Recommended)
+
+Velero adds restore labels to restored resources.
+
+Delete restored workloads:
+
+```bash
 kubectl delete all \
   -A \
   -l velero.io/restore-name=restore1
+```
 
-Delete PVCs also:
+---
 
+## Delete PVCs
+
+Remove restored PersistentVolumeClaims:
+
+```bash
 kubectl delete pvc \
   -A \
   -l velero.io/restore-name=restore1
+```
 
-Delete ConfigMaps/Secrets:
+---
 
+## Delete ConfigMaps and Secrets
+
+```bash
 kubectl delete configmap,secret \
   -A \
   -l velero.io/restore-name=restore1
-Option 2: Delete a specific namespace restore
+```
 
-Example: restore was for your app namespace:
+---
 
+# Option 2: Delete Namespace Restore
+
+If restore was done into a separate namespace:
+
+Example:
+
+```bash
 kubectl delete namespace train-app
+```
 
 or:
 
+```bash
 kubectl delete namespace default
+```
 
-(be careful, this removes everything in that namespace)
+> Warning:
+>
+> Deleting a namespace removes all resources inside it.
 
-Option 3: If it restored Oracle StatefulSet
+---
 
-Check:
+# Option 3: Remove Restored Oracle StatefulSet
 
+For Oracle StatefulSet restore:
+
+Check resources:
+
+```bash
 kubectl get statefulset
+
 kubectl get pvc
+```
 
-Delete:
+Delete StatefulSet:
 
+```bash
 kubectl delete statefulset oracle-db
+```
 
+Delete Oracle PVC:
+
+```bash
 kubectl delete pvc oracle-data-oracle-db-0
+```
 
-EBS volume will delete according to StorageClass reclaim policy.
+EBS volume deletion depends on StorageClass reclaim policy.
 
-Check what restore created
+Example:
+
+```bash
+kubectl get storageclass
+```
+
+If reclaim policy is:
+
+```
+Delete
+```
+
+EBS volume will be removed.
+
+If:
+
+```
+Retain
+```
+
+EBS volume remains.
+
+---
+
+# Check What Restore Created
+
+Show restore resources:
+
+```bash
 velero restore describe restore1 --details
-For future safer testing
+```
 
-Restore into a different namespace:
+---
 
+# Safer Restore Testing
+
+For testing, restore into a different namespace.
+
+Example:
+
+```bash
 velero restore create restore-test \
   --from-backup demo-backup \
   --namespace-mappings default:test-restore
+```
 
-Then rollback is easy:
+Check:
 
+```bash
+kubectl get all -n test-restore
+```
+
+Rollback:
+
+```bash
 kubectl delete namespace test-restore
+```
 
-For EKS + Oracle StatefulSet, this namespace restore method is the safest.
+---
+
+# Recommended for EKS + Oracle
+
+For EKS StatefulSet workloads:
+
+```
+Velero Backup
+       |
+       |
+       v
+Namespace Restore
+       |
+       |
+       v
+Test Namespace
+       |
+       |
+Delete Namespace
+```
+
+This is the safest restore testing method because the original application is not touched.
