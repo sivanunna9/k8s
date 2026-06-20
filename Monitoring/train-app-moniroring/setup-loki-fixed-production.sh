@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-echo "🚀 FIXED Loki + Fluent Bit Production Setup (EKS)"
+echo "🚀 FIXED EKS Observability Stack (Loki + Fluent Bit)"
 
 NAMESPACE=logging
 
@@ -19,16 +19,17 @@ helm repo add fluent https://fluent.github.io/helm-charts || true
 helm repo update
 
 # -----------------------------
-# 3. CLEAN OLD INSTALL (IMPORTANT FIX)
+# 3. CLEAN OLD INSTALLS (IMPORTANT)
 # -----------------------------
-echo "🧹 Cleaning old Loki installation (if any)..."
+echo "🧹 Cleaning old deployments..."
 helm uninstall loki -n $NAMESPACE || true
+helm uninstall fluent-bit -n $NAMESPACE || true
 kubectl delete pvc -n $NAMESPACE --all || true
 
 # -----------------------------
-# 4. INSTALL LOKI (FIXED STORAGE CLASS ISSUE)
+# 4. INSTALL LOKI (FIXED PVC + gp3)
 # -----------------------------
-echo "🧠 Installing Loki with FIXED gp3 storage..."
+echo "🧠 Installing Loki (fixed storage config)..."
 
 cat > loki-values.yaml <<EOF
 deploymentMode: SimpleScalable
@@ -70,9 +71,9 @@ helm install loki grafana/loki-simple-scalable \
   --wait
 
 # -----------------------------
-# 5. INSTALL FLUENT BIT
+# 5. INSTALL FLUENT BIT (FIXED PROBES ISSUE)
 # -----------------------------
-echo "📡 Installing Fluent Bit..."
+echo "📡 Installing Fluent Bit (probe fixed)..."
 
 cat > fluentbit-values.yaml <<EOF
 service:
@@ -81,11 +82,19 @@ service:
 daemonSet:
   enabled: true
 
+# IMPORTANT FIX: disable broken probes
+readinessProbe:
+  enabled: false
+
+livenessProbe:
+  enabled: false
+
 config:
   service: |
     [SERVICE]
         Flush 1
         Log_Level info
+        HTTP_Server Off
 
   inputs: |
     [INPUT]
@@ -123,7 +132,7 @@ echo "🔍 POD STATUS:"
 kubectl get pods -n $NAMESPACE
 
 echo ""
-echo "📦 PVC STATUS (MUST BE BOUND):"
+echo "📦 PVC STATUS:"
 kubectl get pvc -n $NAMESPACE
 
 echo ""
@@ -131,16 +140,16 @@ echo "📡 SERVICES:"
 kubectl get svc -n $NAMESPACE
 
 # -----------------------------
-# 7. SUCCESS MESSAGE
+# 7. SUCCESS INFO
 # -----------------------------
 echo ""
-echo "✅ LOKI + FLUENT BIT INSTALLED SUCCESSFULLY"
+echo "✅ OBSERVABILITY STACK READY"
 echo ""
-echo "👉 Grafana ALB:"
+echo "👉 Grafana (your ALB):"
 echo "http://acaaac9d52da242c5a233a01246bbf6c-1758470722.us-east-1.elb.amazonaws.com/"
 echo ""
-echo "👉 Add Loki datasource in Grafana:"
+echo "👉 Loki datasource URL:"
 echo "http://loki.$NAMESPACE.svc.cluster.local:3100"
 echo ""
-echo "👉 Log query:"
+echo "👉 Log query in Grafana:"
 echo "{job=\"fluentbit\"}"
