@@ -3,14 +3,14 @@ kind: ClusterConfig
 
 metadata:
   name: demo
-  region: us-east-2
+  region: us-east-1
 vpc:
   nat:
     gateway: Single  # Required for private worker nodes to access the internet
 
 managedNodeGroups:
   - name: demo
-    instanceType: t4g.medium
+    instanceType: m7i-flex.large
     minSize: 1
     maxSize: 3
     desiredCapacity: 2
